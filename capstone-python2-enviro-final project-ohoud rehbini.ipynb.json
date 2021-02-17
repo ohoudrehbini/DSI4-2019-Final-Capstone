@@ -1,0 +1,1151 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Application of Machine Learning To Epileptic Seizure Detection"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Project description: \n",
+    "Machine Learning approach to constructing patient-specific classifiers that detect the onset of an epileptic seizure through analysis of the scalp electroencephalogram (EEG), a non-invasive measure of the brain’s electrical activity.\n",
+    "\n",
+    "This problem is challenging because the brain’s activity has numerous classes with overlapping characteristics. The key steps involved in realizing a high performance algorithm included shaping the problem into an appropriate machine learning framework, and identifying the features critical to separating seizure from other types of brain activity.\n",
+    "\n",
+    "The data is a big data were collected from MIT (CHB-MIT) public database. The big data contains 23 cases (5 males and 17 females). Each cases contains one folder that has one seizures and/or more seizures detected. Some folders were collected in 1 hr others in 4 hrs long whereas other cases were collected in 2 hrs. \n",
+    "256 signals per second were recorded. There are other signals were included in the data (considered as noise) such as ECG and VNS. The recored were saved in Europe data format (edf). The edf file contained 664 records and 182 signals were recorded as seizures in the total 23 cases. \n",
+    "\n",
+    "However, in case of this study one cases (chb03) that has high recorded seizure activities and it was used to perform the algorithum to detect seizures and provide solution and future work for next step.  "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "1. use the python 2.7 enviroment to use eegtool library which is not activated in python 3.7"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "# conda environments:\r\n",
+      "#\r\n",
+      "base                     /anaconda3\r\n",
+      "python27              *  /anaconda3/envs/python27\r\n",
+      "\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "!conda info --envs"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "2. library to use based on python 2.7 "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import matplotlib\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "import datetime\n",
+    "import statsmodels.api as sm\n",
+    "import os \n",
+    "\n",
+    "sns.set(font_scale=1.5)\n",
+    "plt.style.use('fivethirtyeight')\n",
+    "\n",
+    "%config InlineBackend.figure_format = 'retina'\n",
+    "%matplotlib inline\n",
+    "\n",
+    "\n",
+    "sns.set(font_scale=1.5)\n",
+    "plt.style.use('fivethirtyeight')\n",
+    "\n",
+    "%config InlineBackend.figure_format = 'retina'\n",
+    "%matplotlib inline"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import warnings\n",
+    "warnings.simplefilter(action='ignore', category=FutureWarning)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "3. convert the edf file to csv file using this code: "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import eegtools\n",
+    "import pandas as pd\n",
+    "\n",
+    "class EDF:\n",
+    "\n",
+    "    def __init__(self, subject):\n",
+    "\n",
+    "        self.subject = subject\n",
+    "\n",
+    "        edf_data = eegtools.io.load_edf(self.subject)\n",
+    "\n",
+    "        self.data = edf_data.X.transpose()\n",
+    "        self.smp_rate = edf_data.sample_rate\n",
+    "        self.channels = edf_data.chan_lab\n",
+    "        self.ann = edf_data.annotations\n",
+    "\n",
+    "    def signal_to_csv(self):\n",
+    "        '''\n",
+    "          To save the dataframe\n",
+    "        '''\n",
+    "        df = pd.DataFrame(data = self.data, columns = self.channels)\n",
+    "        df.to_csv('%s.csv' % self.subject, index = False, encoding='utf-8')\n",
+    "\n",
+    "    def ann_to_csv(self):\n",
+    "        '''\n",
+    "          To save the annotations\n",
+    "        '''\n",
+    "        ann = pd.DataFrame(data = self.ann, columns = ['time', 'duration', 'label'])\n",
+    "\n",
+    "        for i in range(len(ann)):\n",
+    "          ann.loc[i, 'label'] = ann.loc[i, 'label'][0]\n",
+    "\n",
+    "        ann.to_csv('%s_ann.csv' % self.subject, index = False, encoding='utf-8')\n",
+    "\n",
+    "    def signal(self):\n",
+    "        return self.data\n",
+    "\n",
+    "    def info(self):\n",
+    "        return [self.smp_rate, self.channels, self.ann]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "4. the previous code need to save as .py (edf2csv.py) file to use it as a read code for all .edf file since we have edf file that contain over 3,000,000 reads it is very hard to read it all using my current apple PC."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "# conda environments:\r\n",
+      "#\r\n",
+      "base                     /anaconda3\r\n",
+      "python27              *  /anaconda3/envs/python27\r\n",
+      "\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "from edf2csv import EDF"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "5. in separate jupytere notebook python 2.7, new test was performed using this code to read all the edf from only one folder. down here is the example of one folder from chb03 one file chb03_01.edf "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(921600, 23)\n",
+      "[256.0, ['FP1-F7', 'F7-T7', 'T7-P7', 'P7-O1', 'FP1-F3', 'F3-C3', 'C3-P3', 'P3-O1', 'FP2-F4', 'F4-C4', 'C4-P4', 'P4-O2', 'FP2-F8', 'F8-T8', 'T8-P8', 'P8-O2', 'FZ-CZ', 'CZ-PZ', 'P7-T7', 'T7-FT9', 'FT9-FT10', 'FT10-T8', 'T8-P8'], []]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# this is from seizure signal \n",
+    "subject = '/Volumes/Transcend/chb-mit-scalp-eeg-database-1.0.0/chb03/chb03_01.edf'\n",
+    "\n",
+    "edf = EDF(subject)\n",
+    "\n",
+    "signal = edf.signal()\n",
+    "info = edf.info()\n",
+    "\n",
+    "print signal.shape\n",
+    "print info\n",
+    "\n",
+    "edf.ann_to_csv()\n",
+    "edf.signal_to_csv()\n",
+    "\n",
+    "# as you can see that one .edf file contain 921600 reads in 23 columns "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(921600, 23)\n",
+      "[256.0, ['FP1-F7', 'F7-T7', 'T7-P7', 'P7-O1', 'FP1-F3', 'F3-C3', 'C3-P3', 'P3-O1', 'FP2-F4', 'F4-C4', 'C4-P4', 'P4-O2', 'FP2-F8', 'F8-T8', 'T8-P8', 'P8-O2', 'FZ-CZ', 'CZ-PZ', 'P7-T7', 'T7-FT9', 'FT9-FT10', 'FT10-T8', 'T8-P8'], []]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# this is from normal signal \n",
+    "subject = '/Volumes/Transcend/chb-mit-scalp-eeg-database-1.0.0/chb03/chb03_06.edf'\n",
+    "\n",
+    "edf = EDF(subject)\n",
+    "\n",
+    "signal = edf.signal()\n",
+    "info = edf.info()\n",
+    "\n",
+    "print signal.shape\n",
+    "print info\n",
+    "\n",
+    "edf.ann_to_csv()\n",
+    "edf.signal_to_csv()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "6. Combine and concatenate the CSV file in one CSV file has all the columns "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "read the csv file of 46 files each one contain around 921600 signals / seconds and there are 23 columns will be very hard and the PC cannot tackle the data although i used external hard drive to open the jupyter notebook. therefore, i used one .csv file for normal signal and one .csv file from seizure signal.  "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# this code could work only incase i have super PC that can handle the amount of data from each file \n",
+    "# import os\n",
+    "# import glob\n",
+    "# import pandas as pd\n",
+    "# os.chdir(\"/Volumes/Transcend/chb-mit-scalp-eeg-database-1.0.0/chb03\")\n",
+    "# extension = 'csv'\n",
+    "# all_filenames = [i for i in glob.glob('*.{}'.format(extension))]\n",
+    "# #combine all files in the list\n",
+    "# combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames ])\n",
+    "# #export to csv\n",
+    "# combined_csv.to_csv( \"combined_csv.csv\", index=False, encoding='utf-8-sig')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df=pd.read_csv('/Volumes/Transcend/chb-mit-scalp-eeg-database-1.0.0/chb03/chb03_06.edf.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(921600, 23)"
+      ]
+     },
+     "execution_count": 15,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>FP1-F7</th>\n",
+       "      <th>F7-T7</th>\n",
+       "      <th>T7-P7</th>\n",
+       "      <th>P7-O1</th>\n",
+       "      <th>FP1-F3</th>\n",
+       "      <th>F3-C3</th>\n",
+       "      <th>C3-P3</th>\n",
+       "      <th>P3-O1</th>\n",
+       "      <th>FP2-F4</th>\n",
+       "      <th>F4-C4</th>\n",
+       "      <th>...</th>\n",
+       "      <th>F8-T8</th>\n",
+       "      <th>T8-P8</th>\n",
+       "      <th>P8-O2</th>\n",
+       "      <th>FZ-CZ</th>\n",
+       "      <th>CZ-PZ</th>\n",
+       "      <th>P7-T7</th>\n",
+       "      <th>T7-FT9</th>\n",
+       "      <th>FT9-FT10</th>\n",
+       "      <th>FT10-T8</th>\n",
+       "      <th>T8-P8.1</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>-30.671551</td>\n",
+       "      <td>-11.916972</td>\n",
+       "      <td>-1.758242</td>\n",
+       "      <td>-14.261294</td>\n",
+       "      <td>14.652015</td>\n",
+       "      <td>-42.783883</td>\n",
+       "      <td>-21.294261</td>\n",
+       "      <td>-9.181929</td>\n",
+       "      <td>-30.28083</td>\n",
+       "      <td>-26.764347</td>\n",
+       "      <td>...</td>\n",
+       "      <td>11.916972</td>\n",
+       "      <td>3.711844</td>\n",
+       "      <td>8.009768</td>\n",
+       "      <td>-15.433455</td>\n",
+       "      <td>-18.559219</td>\n",
+       "      <td>2.148962</td>\n",
+       "      <td>-35.360195</td>\n",
+       "      <td>-58.803419</td>\n",
+       "      <td>58.803419</td>\n",
+       "      <td>3.711844</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>-0.586081</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.976801</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 23 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      FP1-F7      F7-T7     T7-P7      P7-O1     FP1-F3      F3-C3      C3-P3  \\\n",
+       "0 -30.671551 -11.916972 -1.758242 -14.261294  14.652015 -42.783883 -21.294261   \n",
+       "1   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "2   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "3   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "4   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "\n",
+       "      P3-O1    FP2-F4      F4-C4  ...      F8-T8     T8-P8     P8-O2  \\\n",
+       "0 -9.181929 -30.28083 -26.764347  ...  11.916972  3.711844  8.009768   \n",
+       "1  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "2  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "3  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "4  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "\n",
+       "       FZ-CZ      CZ-PZ     P7-T7     T7-FT9   FT9-FT10    FT10-T8   T8-P8.1  \n",
+       "0 -15.433455 -18.559219  2.148962 -35.360195 -58.803419  58.803419  3.711844  \n",
+       "1   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "2   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "3   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "4   0.195360   0.195360  0.195360  -0.586081   0.195360   0.976801  0.195360  \n",
+       "\n",
+       "[5 rows x 23 columns]"
+      ]
+     },
+     "execution_count": 14,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_seizure=pd.read_csv('/Volumes/Transcend/chb-mit-scalp-eeg-database-1.0.0/chb03/chb03_01.edf.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(921600, 23)"
+      ]
+     },
+     "execution_count": 18,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_seizure.shape"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>FP1-F7</th>\n",
+       "      <th>F7-T7</th>\n",
+       "      <th>T7-P7</th>\n",
+       "      <th>P7-O1</th>\n",
+       "      <th>FP1-F3</th>\n",
+       "      <th>F3-C3</th>\n",
+       "      <th>C3-P3</th>\n",
+       "      <th>P3-O1</th>\n",
+       "      <th>FP2-F4</th>\n",
+       "      <th>F4-C4</th>\n",
+       "      <th>...</th>\n",
+       "      <th>F8-T8</th>\n",
+       "      <th>T8-P8</th>\n",
+       "      <th>P8-O2</th>\n",
+       "      <th>FZ-CZ</th>\n",
+       "      <th>CZ-PZ</th>\n",
+       "      <th>P7-T7</th>\n",
+       "      <th>T7-FT9</th>\n",
+       "      <th>FT9-FT10</th>\n",
+       "      <th>FT10-T8</th>\n",
+       "      <th>T8-P8.1</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>42.002442</td>\n",
+       "      <td>19.340659</td>\n",
+       "      <td>6.056166</td>\n",
+       "      <td>-14.261294</td>\n",
+       "      <td>31.062271</td>\n",
+       "      <td>-16.996337</td>\n",
+       "      <td>33.406593</td>\n",
+       "      <td>5.665446</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>-48.644689</td>\n",
+       "      <td>...</td>\n",
+       "      <td>-9.96337</td>\n",
+       "      <td>2.148962</td>\n",
+       "      <td>-6.056166</td>\n",
+       "      <td>-23.247863</td>\n",
+       "      <td>26.764347</td>\n",
+       "      <td>-5.665446</td>\n",
+       "      <td>-5.665446</td>\n",
+       "      <td>-10.35409</td>\n",
+       "      <td>-13.089133</td>\n",
+       "      <td>2.148962</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>-0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 23 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      FP1-F7      F7-T7     T7-P7      P7-O1     FP1-F3      F3-C3      C3-P3  \\\n",
+       "0  42.002442  19.340659  6.056166 -14.261294  31.062271 -16.996337  33.406593   \n",
+       "1   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "2   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "3   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "4   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "\n",
+       "      P3-O1   FP2-F4      F4-C4  ...    F8-T8     T8-P8     P8-O2      FZ-CZ  \\\n",
+       "0  5.665446  0.19536 -48.644689  ... -9.96337  2.148962 -6.056166 -23.247863   \n",
+       "1  0.195360  0.19536   0.195360  ...  0.19536  0.195360  0.195360   0.195360   \n",
+       "2  0.195360  0.19536   0.195360  ...  0.19536  0.195360  0.195360   0.195360   \n",
+       "3  0.195360  0.19536   0.195360  ...  0.19536  0.195360  0.195360   0.195360   \n",
+       "4  0.195360  0.19536   0.195360  ...  0.19536  0.195360  0.195360   0.195360   \n",
+       "\n",
+       "       CZ-PZ     P7-T7    T7-FT9  FT9-FT10    FT10-T8   T8-P8.1  \n",
+       "0  26.764347 -5.665446 -5.665446 -10.35409 -13.089133  2.148962  \n",
+       "1   0.195360  0.195360  0.195360   0.19536   0.195360  0.195360  \n",
+       "2   0.195360  0.195360  0.195360   0.19536   0.195360  0.195360  \n",
+       "3   0.195360  0.195360  0.195360   0.19536   0.195360  0.195360  \n",
+       "4   0.195360  0.195360 -0.195360   0.19536   0.195360  0.195360  \n",
+       "\n",
+       "[5 rows x 23 columns]"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df_seizure.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "7. dataframe concatenation "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df1=pd.concat([df, df_seizure], sort=False)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>FP1-F7</th>\n",
+       "      <th>F7-T7</th>\n",
+       "      <th>T7-P7</th>\n",
+       "      <th>P7-O1</th>\n",
+       "      <th>FP1-F3</th>\n",
+       "      <th>F3-C3</th>\n",
+       "      <th>C3-P3</th>\n",
+       "      <th>P3-O1</th>\n",
+       "      <th>FP2-F4</th>\n",
+       "      <th>F4-C4</th>\n",
+       "      <th>...</th>\n",
+       "      <th>F8-T8</th>\n",
+       "      <th>T8-P8</th>\n",
+       "      <th>P8-O2</th>\n",
+       "      <th>FZ-CZ</th>\n",
+       "      <th>CZ-PZ</th>\n",
+       "      <th>P7-T7</th>\n",
+       "      <th>T7-FT9</th>\n",
+       "      <th>FT9-FT10</th>\n",
+       "      <th>FT10-T8</th>\n",
+       "      <th>T8-P8.1</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>-30.671551</td>\n",
+       "      <td>-11.916972</td>\n",
+       "      <td>-1.758242</td>\n",
+       "      <td>-14.261294</td>\n",
+       "      <td>14.652015</td>\n",
+       "      <td>-42.783883</td>\n",
+       "      <td>-21.294261</td>\n",
+       "      <td>-9.181929</td>\n",
+       "      <td>-30.28083</td>\n",
+       "      <td>-26.764347</td>\n",
+       "      <td>...</td>\n",
+       "      <td>11.916972</td>\n",
+       "      <td>3.711844</td>\n",
+       "      <td>8.009768</td>\n",
+       "      <td>-15.433455</td>\n",
+       "      <td>-18.559219</td>\n",
+       "      <td>2.148962</td>\n",
+       "      <td>-35.360195</td>\n",
+       "      <td>-58.803419</td>\n",
+       "      <td>58.803419</td>\n",
+       "      <td>3.711844</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.19536</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>...</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>-0.586081</td>\n",
+       "      <td>0.195360</td>\n",
+       "      <td>0.976801</td>\n",
+       "      <td>0.195360</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 23 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "      FP1-F7      F7-T7     T7-P7      P7-O1     FP1-F3      F3-C3      C3-P3  \\\n",
+       "0 -30.671551 -11.916972 -1.758242 -14.261294  14.652015 -42.783883 -21.294261   \n",
+       "1   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "2   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "3   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "4   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360   0.195360   \n",
+       "\n",
+       "      P3-O1    FP2-F4      F4-C4  ...      F8-T8     T8-P8     P8-O2  \\\n",
+       "0 -9.181929 -30.28083 -26.764347  ...  11.916972  3.711844  8.009768   \n",
+       "1  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "2  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "3  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "4  0.195360   0.19536   0.195360  ...   0.195360  0.195360  0.195360   \n",
+       "\n",
+       "       FZ-CZ      CZ-PZ     P7-T7     T7-FT9   FT9-FT10    FT10-T8   T8-P8.1  \n",
+       "0 -15.433455 -18.559219  2.148962 -35.360195 -58.803419  58.803419  3.711844  \n",
+       "1   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "2   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "3   0.195360   0.195360  0.195360   0.195360   0.195360   0.195360  0.195360  \n",
+       "4   0.195360   0.195360  0.195360  -0.586081   0.195360   0.976801  0.195360  \n",
+       "\n",
+       "[5 rows x 23 columns]"
+      ]
+     },
+     "execution_count": 20,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df1.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'pandas.core.frame.DataFrame'>\n",
+      "Int64Index: 1843200 entries, 0 to 921599\n",
+      "Data columns (total 23 columns):\n",
+      "FP1-F7      float64\n",
+      "F7-T7       float64\n",
+      "T7-P7       float64\n",
+      "P7-O1       float64\n",
+      "FP1-F3      float64\n",
+      "F3-C3       float64\n",
+      "C3-P3       float64\n",
+      "P3-O1       float64\n",
+      "FP2-F4      float64\n",
+      "F4-C4       float64\n",
+      "C4-P4       float64\n",
+      "P4-O2       float64\n",
+      "FP2-F8      float64\n",
+      "F8-T8       float64\n",
+      "T8-P8       float64\n",
+      "P8-O2       float64\n",
+      "FZ-CZ       float64\n",
+      "CZ-PZ       float64\n",
+      "P7-T7       float64\n",
+      "T7-FT9      float64\n",
+      "FT9-FT10    float64\n",
+      "FT10-T8     float64\n",
+      "T8-P8.1     float64\n",
+      "dtypes: float64(23)\n",
+      "memory usage: 337.5 MB\n"
+     ]
+    }
+   ],
+   "source": [
+    "df1.info()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(1843200, 23)"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df1.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Then, we need to convert the concate dataframe to csv file "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df1.to_csv('df_concat.csv')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## important note : \n",
+    "since It was important to convert edf file to csv and use eegtool from python2.7 enviroment. i had to switch the enviroment to python3.7 to use mne library to map the location of the channels on scalp surface using MNE library. "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "8. rowa and columns description and definition \n",
+    "\n",
+    "reference : http://electroneurodiagnostics.org/resources/EEG-Material/5-Electroencephalographic-Electrodes,-Channels,-and-Montages-and-How-They-Are-Chosen.pdf \n",
+    "\n",
+    "https://neupsykey.com/neurologic-monitoring-techniques/"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Channels in EDF Files:\n",
+    "**********************\n",
+    "    1.  five electrodes as it might be displayed in a referential montage\n",
+    "\n",
+    "    2. Bipolar Montages\n",
+    "- Channel 5: FP1-F3\n",
+    "- Channel 6: F3-C3\n",
+    "- Channel 7: C3-P3\n",
+    "- Channel 8: P3-O1\n",
+    "\n",
+    "    3. Right parasagittal \n",
+    "- Channel 9: FP2-F4\n",
+    "- Channel 10: F4-C4\n",
+    "- Channel 11: C4-P4\n",
+    "- Channel 12: P4-O2\n",
+    "\n",
+    "- Channel 1: FP1-F7\n",
+    "- Channel 2: F7-T7\n",
+    "- Channel 3: T7-P7\n",
+    "- Channel 4: P7-O1\n",
+    "\n",
+    "\n",
+    "- Channel 13: FP2-F8\n",
+    "- Channel 14: F8-T8\n",
+    "- Channel 15: T8-P8\n",
+    "- Channel 16: P8-O2\n",
+    "- Channel 17: FZ-CZ\n",
+    "- Channel 18: CZ-PZ\n",
+    "- Channel 19: P7-T7\n",
+    "- Channel 20: T7-FT9\n",
+    "- Channel 21: FT9-FT10\n",
+    "- Channel 22: FT10-T8\n",
+    "- Channel 23: T8-P8"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.16"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

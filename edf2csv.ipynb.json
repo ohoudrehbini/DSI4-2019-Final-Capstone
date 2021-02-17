@@ -1,0 +1,392 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Part2: loading the database from the website and converted to CSV file in python2.7 "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#https://physionet.org/content/chbmit/1.0.0/#files-panel"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install EEGtools"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# this will filter out a lot of future warnings from statsmodels\n",
+    "import warnings\n",
+    "warnings.simplefilter(action='ignore', category=FutureWarning)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install pandas"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#! pip install numpy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#! pip install matplotlib"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install seaborn"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#! pip install datetime"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install statsmodels"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import matplotlib\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "import datetime\n",
+    "import statsmodels.api as sm\n",
+    "\n",
+    "\n",
+    "sns.set(font_scale=1.5)\n",
+    "plt.style.use('fivethirtyeight')\n",
+    "\n",
+    "%config InlineBackend.figure_format = 'retina'\n",
+    "%matplotlib inline\n",
+    "\n",
+    "\n",
+    "sns.set(font_scale=1.5)\n",
+    "plt.style.use('fivethirtyeight')\n",
+    "\n",
+    "%config InlineBackend.figure_format = 'retina'\n",
+    "%matplotlib inline"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install pyEDFlib"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install mne"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install -U mne"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install mne"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "#!pip install --upgrade pip"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#%matplotlib qt5"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install sklearn"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install scikit-learn"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install scipy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from matplotlib import pyplot as plt\n",
+    "import numpy as np"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install base"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install convertfigures"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#pip._internal.utils.deprecation.deprecated. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!pip install six"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#! pip install decorators"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "/bin/sh: conda: command not found\r\n"
+     ]
+    }
+   ],
+   "source": [
+    "!conda info --envs"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import eegtools\n",
+    "import pandas as pd\n",
+    "\n",
+    "class EDF:\n",
+    "\n",
+    "    def __init__(self, subject):\n",
+    "\n",
+    "        self.subject = subject\n",
+    "\n",
+    "        edf_data = eegtools.io.load_edf(self.subject)\n",
+    "\n",
+    "        self.data = edf_data.X.transpose()\n",
+    "        self.smp_rate = edf_data.sample_rate\n",
+    "        self.channels = edf_data.chan_lab\n",
+    "        self.ann = edf_data.annotations\n",
+    "\n",
+    "    def signal_to_csv(self):\n",
+    "        '''\n",
+    "          To save the dataframe\n",
+    "        '''\n",
+    "        df = pd.DataFrame(data = self.data, columns = self.channels)\n",
+    "        df.to_csv('%s.csv' % self.subject, index = False, encoding='utf-8')\n",
+    "\n",
+    "    def ann_to_csv(self):\n",
+    "        '''\n",
+    "          To save the annotations\n",
+    "        '''\n",
+    "        ann = pd.DataFrame(data = self.ann, columns = ['time', 'duration', 'label'])\n",
+    "\n",
+    "        for i in range(len(ann)):\n",
+    "          ann.loc[i, 'label'] = ann.loc[i, 'label'][0]\n",
+    "\n",
+    "        ann.to_csv('%s_ann.csv' % self.subject, index = False, encoding='utf-8')\n",
+    "\n",
+    "    def signal(self):\n",
+    "        return self.data\n",
+    "\n",
+    "    def info(self):\n",
+    "        return [self.smp_rate, self.channels, self.ann]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.16"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
